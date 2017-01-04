@@ -151,6 +151,10 @@ func (b *ServerBuilder) Build() common.Server {
 	})
 
 	newServer.httpserver.POST("/proxies", func(c echo.Context) error {
+		if c.Request().Header.Get("Content-Type") != "application/json" {
+			c.JSON(http.StatusUnsupportedMediaType, map[string]string{"Message": "Must be 'application/json' MIME type"})
+			return nil
+		}
 		bodyDecoder := json.NewDecoder(c.Request().Body)
 		newProxy := new(ProxiesPostBody)
 		if err := bodyDecoder.Decode(newProxy); err != nil {
@@ -162,6 +166,10 @@ func (b *ServerBuilder) Build() common.Server {
 	})
 
 	newServer.httpserver.PATCH("/proxies/current", func(c echo.Context) error {
+		if c.Request().Header.Get("Content-Type") != "application/json" {
+			c.JSON(http.StatusUnsupportedMediaType, map[string]string{"Message": "Must be 'application/json' MIME type"})
+			return nil
+		}
 		bodyDecoder := json.NewDecoder(c.Request().Body)
 		switchName := new(ProxiesCurrentPatchBody)
 		if err := bodyDecoder.Decode(switchName); err != nil {
@@ -176,6 +184,10 @@ func (b *ServerBuilder) Build() common.Server {
 	})
 
 	newServer.httpserver.PATCH("/whitelist", func(c echo.Context) error {
+		if c.Request().Header.Get("Content-Type") != "application/json" {
+			c.JSON(http.StatusUnsupportedMediaType, map[string]string{"Message": "Must be 'application/json' MIME type"})
+			return nil
+		}
 		bodyDecoder := json.NewDecoder(c.Request().Body)
 		listOperation := new(WhitelistPatchBody)
 		if err := bodyDecoder.Decode(listOperation); err != nil {
@@ -184,8 +196,8 @@ func (b *ServerBuilder) Build() common.Server {
 		switch listOperation.Operation {
 		case "Add":
 			if exists := b.whitelist.Has(listOperation.Url); exists {
-				c.JSON(http.StatusForbidden,map[string]string{"Message":"Already exists"})
-			}	else {
+				c.JSON(http.StatusForbidden, map[string]string{"Message": "Already exists"})
+			} else {
 				b.whitelist.Add(listOperation.Url)
 				c.Response().WriteHeader(http.StatusOK)
 			}
@@ -193,8 +205,8 @@ func (b *ServerBuilder) Build() common.Server {
 			if exists := b.whitelist.Has(listOperation.Url); exists {
 				b.whitelist.Del(listOperation.Url)
 				c.Response().WriteHeader(http.StatusOK)
-			}	else {
-				c.JSON(http.StatusForbidden,map[string]string{"Message":"Doesn't exists"})
+			} else {
+				c.JSON(http.StatusForbidden, map[string]string{"Message": "Doesn't exists"})
 			}
 		case "Has":
 			c.JSON(http.StatusOK, map[string]bool{"Exists": b.whitelist.Has(listOperation.Url)})
