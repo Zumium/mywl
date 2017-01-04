@@ -31,16 +31,16 @@ func (this *WhiteList) Has(url string) bool {
 func (this *WhiteList) ToJsArray() string {
 	var buffer bytes.Buffer
 	lastElem := this.whitelist.Back()
-	buffer.WriteString("[")
+	buffer.WriteString("[\n")
 	for e := this.whitelist.Front(); e != nil; e = e.Next() {
 		str, _ := e.Value.(string)
 		buffer.WriteString("\"")
 		buffer.WriteString(str)
 		buffer.WriteString("\"")
 		if e != lastElem {
-			buffer.WriteString(",")
+			buffer.WriteString(",\n")
 		}
 	}
-	buffer.WriteString("]")
+	buffer.WriteString("\n]")
 	return buffer.String()
 }

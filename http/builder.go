@@ -12,8 +12,8 @@ import (
 const pacTemplate = `
 var PROXY_METHOD = {{.Proxymethod}};
 var RULES = [
-	[".cn"],
-	{{.Liststring}}
+[".cn"],
+{{.Liststring}}
 ];
 function FindProxyForURL(url, host) {
 
