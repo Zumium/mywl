@@ -17,7 +17,7 @@ type ProxyList struct {
 }
 
 var proxyConfigFilePath string
-var proxyRecordTemplate = template.Must(template.New("ProxyRecord").Parse(`{{.Name}} {{.Protocol}} {{.Address}}{{if .Current}} current{{end}}`+"\n"))
+var proxyRecordTemplate = template.Must(template.New("ProxyRecord").Parse(`{{.Name}} {{.Protocol}} {{.Address}}{{if .Current}} current{{end}}` + "\n"))
 
 func (pl *ProxyList) Add(name, protocol, address string) {
 	pl.proxylist.PushBack(NewProxy(name, protocol, address))
@@ -49,12 +49,12 @@ func (pl *ProxyList) Len() int {
 }
 
 func (pl *ProxyList) SetCurrent(name string) error {
-	if proxy, err := pl.Find(name); err != nil {
+	proxy, err := pl.Find(name)
+	if err != nil {
 		return err
-	} else {
-		p, _ := proxy.(*Proxy)
-		pl.current = p
 	}
+	p, _ := proxy.(*Proxy)
+	pl.current = p
 	return nil
 }
 
@@ -63,16 +63,16 @@ func (pl *ProxyList) GetCurrent() common.Proxy {
 }
 
 func (pl *ProxyList) Set(name, protocol, address string) error {
-	if proxy, err := pl.Find(name); err != nil {
+	proxy, err := pl.Find(name)
+	if err != nil {
 		return err
-	} else {
-		p, _ := proxy.(*Proxy)
-		if protocol != "" {
-			p.protocol = protocol
-		}
-		if address != "" {
-			p.address = address
-		}
+	}
+	p, _ := proxy.(*Proxy)
+	if protocol != "" {
+		p.protocol = protocol
+	}
+	if address != "" {
+		p.address = address
 	}
 	return nil
 }
@@ -96,50 +96,44 @@ func (pl *ProxyList) Init() error {
 func (pl *ProxyList) Load() error {
 	pl.proxylist.Init()
 
-	var f *os.File
-	defer func() {
-		if f != nil {
-			f.Close()
-		}
-	}()
-
-	if file, err := os.Open(proxyConfigFilePath); err != nil {
+	file, err := os.Open(proxyConfigFilePath)
+	if err != nil {
 		return err
-	} else {
-		f=file
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			segs := strings.Split(scanner.Text(), " ")
-			pl.proxylist.PushBack(NewProxy(segs[0], segs[1], segs[2]))
-			if len(segs) == 4 && segs[3] == "current" {
-				pl.SetCurrent(segs[0])
-			}
-		}
-		if err = scanner.Err(); err != nil {
-			return err
-		}
-		//In case that there is no "current" proxy
-		if pl.GetCurrent() == nil {
-			pl.current = NewProxy("DIRECT", "DIRECT", "")
-		}
 	}
-	return nil
-}
-
-func (pl *ProxyList) Save() error {
-	var file *os.File
 	defer func() {
 		if file != nil {
 			file.Close()
 		}
 	}()
 
-	if f, err := os.Create(proxyConfigFilePath); err != nil {
-		return err
-	} else {
-		file = f
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		segs := strings.Split(scanner.Text(), " ")
+		pl.proxylist.PushBack(NewProxy(segs[0], segs[1], segs[2]))
+		if len(segs) == 4 && segs[3] == "current" {
+			pl.SetCurrent(segs[0])
+		}
 	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	//In case that there is no "current" proxy
+	if pl.GetCurrent() == nil {
+		pl.current = NewProxy("DIRECT", "DIRECT", "")
+	}
+	return nil
+}
 
+func (pl *ProxyList) Save() error {
+	file, err := os.Create(proxyConfigFilePath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if file != nil {
+			file.Close()
+		}
+	}()
 	//writer := bufio.NewWriter(file)
 	for e := pl.proxylist.Front(); e != nil; e = e.Next() {
 		p, _ := e.Value.(*Proxy)
@@ -148,7 +142,7 @@ func (pl *ProxyList) Save() error {
 		if p.name == pl.current.name {
 			current = "true"
 		}
-		proxyRecordTemplate.Execute(file,map[string]string{"Name": p.name, "Protocol": p.protocol, "Address": p.address, "Current": current})
+		proxyRecordTemplate.Execute(file, map[string]string{"Name": p.name, "Protocol": p.protocol, "Address": p.address, "Current": current})
 	}
 	//if err := writer.Flush(); err != nil {
 	//	return err
