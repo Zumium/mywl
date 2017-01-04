@@ -4,6 +4,7 @@ import (
 	"flag"
 	"github.com/Zumium/mywl/common"
 	"github.com/labstack/echo"
+	"net/http"
 	"strconv"
 	"sync"
 	"text/template"
@@ -63,10 +64,10 @@ type ServerBuilder struct {
 	proxylist common.ProxyList
 }
 
-type currentSetting struct {
-	Proxymethod string
-	Liststring  string
-}
+//type currentSetting struct {
+//	Proxymethod string
+//	Liststring  string
+//}
 
 var serverBuilderInstance *ServerBuilder
 var once sync.Once
@@ -113,10 +114,41 @@ func (b *ServerBuilder) Build() common.Server {
 		panic(err)
 	}
 
+	//Get PAC file
 	newServer.httpserver.GET("/pac", func(c echo.Context) error {
 		c.Response().Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
-		err := t.Execute(c.Response(), &currentSetting{b.proxylist.GetCurrent().ToProxyMethodString(), b.whitelist.ToJsArray()})
+		//err := t.Execute(c.Response(), &currentSetting{b.proxylist.GetCurrent().ToProxyMethodString(), b.whitelist.ToJsArray()})
+		err := t.Execute(c.Response(), map[string]string{"Proxymethod": b.proxylist.GetCurrent().ToProxyMethodString(), "Liststring": b.whitelist.ToJsArray()})
 		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	//GET all proxy settings
+	newServer.httpserver.GET("/proxies", func(c echo.Context) error {
+		proxiesArray := make([]map[string]string, 0, b.proxylist.Len())
+		b.proxylist.ForEach(func(each common.Proxy) {
+			proxiesArray = append(proxiesArray, each.ToMap())
+		})
+		if err := c.JSON(http.StatusOK, proxiesArray); err != nil {
+			return err
+		}
+		return nil
+	})
+
+	//GET current proxy setting
+	newServer.httpserver.GET("/proxies/current", func(c echo.Context) error {
+		if err := c.JSON(http.StatusOK, b.proxylist.GetCurrent().ToMap()); err != nil {
+			return err
+		}
+		return nil
+	})
+
+	//GET whitelist
+	newServer.httpserver.GET("/whitelist", func(c echo.Context) error {
+		c.Response().Header().Set("Content-Type", "application/json")
+		if err := c.String(http.StatusOK, b.whitelist.ToJsArray()); err != nil {
 			return err
 		}
 		return nil

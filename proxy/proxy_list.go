@@ -42,6 +42,10 @@ func (pl *ProxyList) Del(name string) error {
 	return errors.New("No such proxy named " + name)
 }
 
+func (pl *ProxyList) Len() int {
+	return pl.proxylist.Len()
+}
+
 func (pl *ProxyList) SetCurrent(name string) error {
 	if proxy, err := pl.Find(name); err != nil {
 		return err
@@ -72,7 +76,7 @@ func (pl *ProxyList) Set(name, protocol, address string) error {
 }
 
 func (pl *ProxyList) InstallFlags(flagset *flag.FlagSet) {
-	flagset.StringVar(&proxyConfigFilePath, "proxyfile", "~/.mywl/proxyconfigs.txt", "file that saves proxy configurations")
+	flagset.StringVar(&proxyConfigFilePath, "proxyfile", "/etc/mywl/proxyconfigs.txt", "file that saves proxy configurations")
 }
 
 func (pl *ProxyList) Init() error {
@@ -106,4 +110,11 @@ func (pl *ProxyList) Init() error {
 		}
 	}
 	return nil
+}
+
+func (pl *ProxyList) ForEach(f func(each common.Proxy)) {
+	for e := pl.proxylist.Front(); e != nil; e = e.Next() {
+		p, _ := e.Value.(*Proxy)
+		f(p)
+	}
 }
