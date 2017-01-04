@@ -9,3 +9,8 @@ type ProxiesPostBody struct {
 type ProxiesCurrentPatchBody struct {
 	Name string
 }
+
+type WhitelistPatchBody struct {
+	Operation string
+	Url       string
+}

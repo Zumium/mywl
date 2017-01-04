@@ -164,13 +164,42 @@ func (b *ServerBuilder) Build() common.Server {
 	newServer.httpserver.PATCH("/proxies/current", func(c echo.Context) error {
 		bodyDecoder := json.NewDecoder(c.Request().Body)
 		switchName := new(ProxiesCurrentPatchBody)
-		if err := bodyDecoder.Decode(switchName);err != nil {
+		if err := bodyDecoder.Decode(switchName); err != nil {
 			return err
 		}
 		if err := b.proxylist.SetCurrent(switchName.Name); err != nil {
-			c.JSON(http.StatusNotFound,map[string]string{"Message":err.Error()})
+			c.JSON(http.StatusNotFound, map[string]string{"Message": err.Error()})
 		} else {
 			c.Response().WriteHeader(http.StatusOK)
+		}
+		return nil
+	})
+
+	newServer.httpserver.PATCH("/whitelist", func(c echo.Context) error {
+		bodyDecoder := json.NewDecoder(c.Request().Body)
+		listOperation := new(WhitelistPatchBody)
+		if err := bodyDecoder.Decode(listOperation); err != nil {
+			return err
+		}
+		switch listOperation.Operation {
+		case "Add":
+			if exists := b.whitelist.Has(listOperation.Url); exists {
+				c.JSON(http.StatusForbidden,map[string]string{"Message":"Already exists"})
+			}	else {
+				b.whitelist.Add(listOperation.Url)
+				c.Response().WriteHeader(http.StatusOK)
+			}
+		case "Delete":
+			if exists := b.whitelist.Has(listOperation.Url); exists {
+				b.whitelist.Del(listOperation.Url)
+				c.Response().WriteHeader(http.StatusOK)
+			}	else {
+				c.JSON(http.StatusForbidden,map[string]string{"Message":"Doesn't exists"})
+			}
+		case "Has":
+			c.JSON(http.StatusOK, map[string]bool{"Exists": b.whitelist.Has(listOperation.Url)})
+		default:
+			c.JSON(http.StatusBadRequest, map[string]string{"Message": "No such operation"})
 		}
 		return nil
 	})
