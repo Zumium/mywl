@@ -8,19 +8,14 @@ import (
 
 func (this *WhiteList) Init() error {
 	//WhiteList is Initable
-	//convert path to absolute file path
-	//absPath, _ := filepath.Abs(this.whitelistPath)
-	//this.whitelistPath = absPath
 	//Init the linkedlist
 	this.whitelist = list.New()
 	//load up list file
-	if err := this.loadList(); err != nil {
-		return err
-	}
-	return nil
+	return this.Load()
 }
 
-func (this *WhiteList) loadList() error {
+func (this *WhiteList) Load() error {
+	this.whitelist.Init()
 	//load list items from file to 'whitelist' field
 	//step 1: open the given file
 	var whitelistFile *os.File
@@ -45,5 +40,32 @@ func (this *WhiteList) loadList() error {
 		return err
 	}
 	//Reading completed
+	return nil
+}
+
+func (this *WhiteList) Save() error {
+	var file *os.File
+	defer func() {
+		if file != nil {
+			file.Close()
+		}
+	}()
+
+	if f, err := os.Create(this.whitelistPath); err != nil {
+		return err
+	} else {
+		file = f
+	}
+
+	writer := bufio.NewWriter(file)
+	for e := this.whitelist.Front(); e != nil; e = e.Next() {
+		s, _ := e.Value.(string)
+		writer.WriteString(s)
+		writer.WriteString("\n")
+	}
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+
 	return nil
 }

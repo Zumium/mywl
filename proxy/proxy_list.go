@@ -8,6 +8,7 @@ import (
 	"github.com/Zumium/mywl/common"
 	"os"
 	"strings"
+	"text/template"
 )
 
 type ProxyList struct {
@@ -16,6 +17,7 @@ type ProxyList struct {
 }
 
 var proxyConfigFilePath string
+var proxyRecordTemplate = template.Must(template.New("ProxyRecord").Parse(`{{.Name}} {{.Protocol}} {{.Address}}{{if .Current}} current{{end}}`+"\n"))
 
 func (pl *ProxyList) Add(name, protocol, address string) {
 	pl.proxylist.PushBack(NewProxy(name, protocol, address))
@@ -75,28 +77,36 @@ func (pl *ProxyList) Set(name, protocol, address string) error {
 	return nil
 }
 
+func (pl *ProxyList) ForEach(f func(each common.Proxy)) {
+	for e := pl.proxylist.Front(); e != nil; e = e.Next() {
+		p, _ := e.Value.(*Proxy)
+		f(p)
+	}
+}
+
 func (pl *ProxyList) InstallFlags(flagset *flag.FlagSet) {
 	flagset.StringVar(&proxyConfigFilePath, "proxyfile", "/etc/mywl/proxyconfigs.txt", "file that saves proxy configurations")
 }
 
 func (pl *ProxyList) Init() error {
-	//var absPath string
-	//if path, err := filepath.Abs(proxyConfigFilePath); err != nil {
-	//	return err
-	//} else {
 	pl.proxylist = list.New()
-	//	absPath = path
-	//}
-	var proxylistFile *os.File
+	return pl.Load()
+}
+
+func (pl *ProxyList) Load() error {
+	pl.proxylist.Init()
+
+	var f *os.File
 	defer func() {
-		if proxylistFile != nil {
-			proxylistFile.Close()
+		if f != nil {
+			f.Close()
 		}
 	}()
-	//if file, err := os.Open(absPath); err != nil {
+
 	if file, err := os.Open(proxyConfigFilePath); err != nil {
-		return nil
+		return err
 	} else {
+		f=file
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			segs := strings.Split(scanner.Text(), " ")
@@ -108,13 +118,40 @@ func (pl *ProxyList) Init() error {
 		if err = scanner.Err(); err != nil {
 			return err
 		}
+		//In case that there is no "current" proxy
+		if pl.GetCurrent() == nil {
+			pl.current = NewProxy("DIRECT", "DIRECT", "")
+		}
 	}
 	return nil
 }
 
-func (pl *ProxyList) ForEach(f func(each common.Proxy)) {
+func (pl *ProxyList) Save() error {
+	var file *os.File
+	defer func() {
+		if file != nil {
+			file.Close()
+		}
+	}()
+
+	if f, err := os.Create(proxyConfigFilePath); err != nil {
+		return err
+	} else {
+		file = f
+	}
+
+	//writer := bufio.NewWriter(file)
 	for e := pl.proxylist.Front(); e != nil; e = e.Next() {
 		p, _ := e.Value.(*Proxy)
-		f(p)
+		//proxyRecordTemplate.Execute(writer,map[string]string{"Name": p.name, "Protocol": p.protocol, "Address": p.address, "Current": pl.current.name})
+		current := ""
+		if p.name == pl.current.name {
+			current = "true"
+		}
+		proxyRecordTemplate.Execute(file,map[string]string{"Name": p.name, "Protocol": p.protocol, "Address": p.address, "Current": current})
 	}
+	//if err := writer.Flush(); err != nil {
+	//	return err
+	//}
+	return nil
 }

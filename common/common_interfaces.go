@@ -36,3 +36,8 @@ type ProxyList interface {
 type Server interface {
 	Start()
 }
+
+type Persistable interface {
+	Load() error
+	Save() error
+}

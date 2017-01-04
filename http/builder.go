@@ -1,6 +1,7 @@
 package http
 
 import (
+	"encoding/json"
 	"flag"
 	"github.com/Zumium/mywl/common"
 	"github.com/labstack/echo"
@@ -63,11 +64,6 @@ type ServerBuilder struct {
 	whitelist common.WhiteList
 	proxylist common.ProxyList
 }
-
-//type currentSetting struct {
-//	Proxymethod string
-//	Liststring  string
-//}
 
 var serverBuilderInstance *ServerBuilder
 var once sync.Once
@@ -150,6 +146,31 @@ func (b *ServerBuilder) Build() common.Server {
 		c.Response().Header().Set("Content-Type", "application/json")
 		if err := c.String(http.StatusOK, b.whitelist.ToJsArray()); err != nil {
 			return err
+		}
+		return nil
+	})
+
+	newServer.httpserver.POST("/proxies", func(c echo.Context) error {
+		bodyDecoder := json.NewDecoder(c.Request().Body)
+		newProxy := new(ProxiesPostBody)
+		if err := bodyDecoder.Decode(newProxy); err != nil {
+			return err
+		}
+		b.proxylist.Add(newProxy.Name, newProxy.Protocol, newProxy.Address)
+		c.Response().WriteHeader(http.StatusCreated)
+		return nil
+	})
+
+	newServer.httpserver.PATCH("/proxies/current", func(c echo.Context) error {
+		bodyDecoder := json.NewDecoder(c.Request().Body)
+		switchName := new(ProxiesCurrentPatchBody)
+		if err := bodyDecoder.Decode(switchName);err != nil {
+			return err
+		}
+		if err := b.proxylist.SetCurrent(switchName.Name); err != nil {
+			c.JSON(http.StatusNotFound,map[string]string{"Message":err.Error()})
+		} else {
+			c.Response().WriteHeader(http.StatusOK)
 		}
 		return nil
 	})

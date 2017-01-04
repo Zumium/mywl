@@ -25,6 +25,15 @@ func initModules(initables []common.Initable) {
 	}
 }
 
+func save(persistables []common.Persistable) {
+	for _, mod := range persistables {
+		if err := mod.Save(); err != nil {
+			fmt.Fprintf(os.Stderr, "error occurd on exiting process: %s", err.Error())
+			os.Exit(-1)
+		}
+	}
+}
+
 func main() {
 	//Parse Commandline Args
 	flagset := flag.NewFlagSet("mywl", flag.ExitOnError)
@@ -36,4 +45,9 @@ func main() {
 	server := http.GetBuilder().SetWhiteList(list.GetInstance()).SetProxyList(proxy.GetProxyList()).Build()
 	//start server
 	server.Start()
+
+	//Going to exit
+	save([]common.Persistable{list.GetInstance(), proxy.GetProxyList()})
+	fmt.Println("Shutting down...")
+	os.Exit(0)
 }
