@@ -12,7 +12,7 @@ import (
 )
 
 const pacTemplate = `
-var PROXY_METHOD = {{.Proxymethod}};
+var PROXY_METHOD = "{{.Proxymethod}}";
 var RULES = [
 [".cn"],
 {{.Liststring}}
@@ -113,7 +113,6 @@ func (b *ServerBuilder) Build() common.Server {
 	//Get PAC file
 	newServer.httpserver.GET("/pac", func(c echo.Context) error {
 		c.Response().Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
-		//err := t.Execute(c.Response(), &currentSetting{b.proxylist.GetCurrent().ToProxyMethodString(), b.whitelist.ToJsArray()})
 		err := t.Execute(c.Response(), map[string]string{"Proxymethod": b.proxylist.GetCurrent().ToProxyMethodString(), "Liststring": b.whitelist.ToJsArray()})
 		if err != nil {
 			return err
