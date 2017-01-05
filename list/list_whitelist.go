@@ -2,10 +2,16 @@ package list
 
 import (
 	"bytes"
+	"fmt"
+	"os"
 )
 
 func (this *WhiteList) Add(url string) {
 	this.whitelist.PushFront(url)
+
+	if err := this.Save(); err != nil {
+		fmt.Fprintf(os.Stderr, "error occurd on whitelist's saving process: %s\n", err.Error())
+	}
 }
 
 func (this *WhiteList) Del(url string) {
@@ -13,6 +19,9 @@ func (this *WhiteList) Del(url string) {
 		str, _ := e.Value.(string)
 		if str == url {
 			this.whitelist.Remove(e)
+			if err := this.Save(); err != nil {
+				fmt.Fprintf(os.Stderr, "error occurd on whitelist's saving process: %s\n", err.Error())
+			}
 			return
 		}
 	}

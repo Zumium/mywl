@@ -113,11 +113,7 @@ func (b *ServerBuilder) Build() common.Server {
 	//Get PAC file
 	newServer.httpserver.GET("/pac", func(c echo.Context) error {
 		c.Response().Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
-		err := t.Execute(c.Response(), map[string]string{"Proxymethod": b.proxylist.GetCurrent().ToProxyMethodString(), "Liststring": b.whitelist.ToJsArray()})
-		if err != nil {
-			return err
-		}
-		return nil
+		return t.Execute(c.Response(), map[string]string{"Proxymethod": b.proxylist.GetCurrent().ToProxyMethodString(), "Liststring": b.whitelist.ToJsArray()})
 	})
 
 	//GET all proxy settings
@@ -126,27 +122,37 @@ func (b *ServerBuilder) Build() common.Server {
 		b.proxylist.ForEach(func(each common.Proxy) {
 			proxiesArray = append(proxiesArray, each.ToMap())
 		})
-		if err := c.JSON(http.StatusOK, proxiesArray); err != nil {
-			return err
-		}
-		return nil
+		return c.JSON(http.StatusOK, proxiesArray)
 	})
 
 	//GET current proxy setting
 	newServer.httpserver.GET("/proxies/current", func(c echo.Context) error {
-		if err := c.JSON(http.StatusOK, b.proxylist.GetCurrent().ToMap()); err != nil {
-			return err
+		return c.JSON(http.StatusOK, b.proxylist.GetCurrent().ToMap())
+	})
+
+	//GET :name proxy
+	newServer.httpserver.GET("/proxies/:name", func(c echo.Context) error {
+		p, err := b.proxylist.Find(c.Param("name"))
+		if err != nil {
+			c.JSON(http.StatusNotFound, map[string]string{"Message": err.Error()})
+			return nil
 		}
+		return c.JSON(http.StatusOK, p.ToMap())
+	})
+
+	//Delete /proxies/:name
+	newServer.httpserver.DELETE("/proxies/:name", func(c echo.Context) error {
+		if err := b.proxylist.Del(c.Param("name")); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"Message": err.Error()})
+		}
+		c.Response().WriteHeader(http.StatusOK)
 		return nil
 	})
 
 	//GET whitelist
 	newServer.httpserver.GET("/whitelist", func(c echo.Context) error {
 		c.Response().Header().Set("Content-Type", "application/json")
-		if err := c.String(http.StatusOK, b.whitelist.ToJsArray()); err != nil {
-			return err
-		}
-		return nil
+		return c.String(http.StatusOK, b.whitelist.ToJsArray())
 	})
 
 	newServer.httpserver.POST("/proxies", func(c echo.Context) error {
@@ -158,6 +164,9 @@ func (b *ServerBuilder) Build() common.Server {
 		newProxy := new(ProxiesPostBody)
 		if err := bodyDecoder.Decode(newProxy); err != nil {
 			return err
+		}
+		if p, _ := b.proxylist.Find(newProxy.Name); p != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"Message": "Already exists"})
 		}
 		b.proxylist.Add(newProxy.Name, newProxy.Protocol, newProxy.Address)
 		c.Response().WriteHeader(http.StatusCreated)
@@ -175,7 +184,7 @@ func (b *ServerBuilder) Build() common.Server {
 			return err
 		}
 		if err := b.proxylist.SetCurrent(switchName.Name); err != nil {
-			c.JSON(http.StatusNotFound, map[string]string{"Message": err.Error()})
+			return c.JSON(http.StatusNotFound, map[string]string{"Message": err.Error()})
 		} else {
 			c.Response().WriteHeader(http.StatusOK)
 		}
@@ -184,18 +193,18 @@ func (b *ServerBuilder) Build() common.Server {
 
 	newServer.httpserver.PATCH("/whitelist", func(c echo.Context) error {
 		if c.Request().Header.Get("Content-Type") != "application/json" {
-			c.JSON(http.StatusUnsupportedMediaType, map[string]string{"Message": "Must be 'application/json' MIME type"})
-			return nil
+			return c.JSON(http.StatusUnsupportedMediaType, map[string]string{"Message": "Must be 'application/json' MIME type"})
 		}
 		bodyDecoder := json.NewDecoder(c.Request().Body)
 		listOperation := new(WhitelistPatchBody)
 		if err := bodyDecoder.Decode(listOperation); err != nil {
 			return err
 		}
+		var err error
 		switch listOperation.Operation {
 		case "Add":
 			if exists := b.whitelist.Has(listOperation.Url); exists {
-				c.JSON(http.StatusForbidden, map[string]string{"Message": "Already exists"})
+				err = c.JSON(http.StatusForbidden, map[string]string{"Message": "Already exists"})
 			} else {
 				b.whitelist.Add(listOperation.Url)
 				c.Response().WriteHeader(http.StatusOK)
@@ -205,14 +214,14 @@ func (b *ServerBuilder) Build() common.Server {
 				b.whitelist.Del(listOperation.Url)
 				c.Response().WriteHeader(http.StatusOK)
 			} else {
-				c.JSON(http.StatusForbidden, map[string]string{"Message": "Doesn't exists"})
+				err = c.JSON(http.StatusForbidden, map[string]string{"Message": "Doesn't exists"})
 			}
 		case "Has":
-			c.JSON(http.StatusOK, map[string]bool{"Exists": b.whitelist.Has(listOperation.Url)})
+			err = c.JSON(http.StatusOK, map[string]bool{"Exists": b.whitelist.Has(listOperation.Url)})
 		default:
-			c.JSON(http.StatusBadRequest, map[string]string{"Message": "No such operation"})
+			err = c.JSON(http.StatusBadRequest, map[string]string{"Message": "No such operation"})
 		}
-		return nil
+		return err
 	})
 
 	return newServer

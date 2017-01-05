@@ -19,16 +19,7 @@ func installFlags(flagConfigurables []common.FlagConfigurable, flagset *flag.Fla
 func initModules(initables []common.Initable) {
 	for _, mod := range initables {
 		if err := mod.Init(); err != nil {
-			fmt.Fprintf(os.Stderr, "error occurd on initing process: %s", err.Error())
-			os.Exit(-1)
-		}
-	}
-}
-
-func save(persistables []common.Persistable) {
-	for _, mod := range persistables {
-		if err := mod.Save(); err != nil {
-			fmt.Fprintf(os.Stderr, "error occurd on exiting process: %s", err.Error())
+			fmt.Fprintf(os.Stderr, "error occurd on initing process: %s\n", err.Error())
 			os.Exit(-1)
 		}
 	}
@@ -46,8 +37,5 @@ func main() {
 	//start server
 	server.Start()
 
-	//Going to exit
-	save([]common.Persistable{list.GetInstance(), proxy.GetProxyList()})
 	fmt.Println("Shutting down...")
-	os.Exit(0)
 }

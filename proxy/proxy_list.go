@@ -5,6 +5,7 @@ import (
 	"container/list"
 	"errors"
 	"flag"
+	"fmt"
 	"github.com/Zumium/mywl/common"
 	"os"
 	"strings"
@@ -21,6 +22,10 @@ var proxyRecordTemplate = template.Must(template.New("ProxyRecord").Parse(`{{.Na
 
 func (pl *ProxyList) Add(name, protocol, address string) {
 	pl.proxylist.PushBack(NewProxy(name, protocol, address))
+
+	if err := pl.Save(); err != nil {
+		fmt.Fprintf(os.Stderr, "error occurd on proxylist's saving process: %s\n", err.Error())
+	}
 }
 
 func (pl *ProxyList) Find(name string) (common.Proxy, error) {
@@ -37,7 +42,15 @@ func (pl *ProxyList) Del(name string) error {
 	for e := pl.proxylist.Front(); e != nil; e = e.Next() {
 		proxy, _ := e.Value.(*Proxy)
 		if proxy.name == name {
+			if proxy == pl.current {
+				pl.current = NewProxy("DIRECT", "DIRECT", "")
+			}
 			pl.proxylist.Remove(e)
+
+			if err := pl.Save(); err != nil {
+				fmt.Fprintf(os.Stderr, "error occurd on proxylist's saving process: %s\n", err.Error())
+			}
+
 			return nil
 		}
 	}
@@ -55,6 +68,11 @@ func (pl *ProxyList) SetCurrent(name string) error {
 	}
 	p, _ := proxy.(*Proxy)
 	pl.current = p
+
+	if err := pl.Save(); err != nil {
+		fmt.Fprintf(os.Stderr, "error occurd on proxylist's saving process: %s\n", err.Error())
+	}
+
 	return nil
 }
 
@@ -68,12 +86,22 @@ func (pl *ProxyList) Set(name, protocol, address string) error {
 		return err
 	}
 	p, _ := proxy.(*Proxy)
+	change := false
 	if protocol != "" {
 		p.protocol = protocol
+		change = true
 	}
 	if address != "" {
 		p.address = address
+		change = true
 	}
+
+	if change {
+		if err := pl.Save(); err != nil {
+			fmt.Fprintf(os.Stderr, "error occurd on proxylist's saving process: %s\n", err.Error())
+		}
+	}
+
 	return nil
 }
 
@@ -109,16 +137,17 @@ func (pl *ProxyList) Load() error {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		segs := strings.Split(scanner.Text(), " ")
-		pl.proxylist.PushBack(NewProxy(segs[0], segs[1], segs[2]))
+		p := NewProxy(segs[0], segs[1], segs[2])
+		pl.proxylist.PushBack(p)
 		if len(segs) == 4 && segs[3] == "current" {
-			pl.SetCurrent(segs[0])
+			pl.current = p
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return err
 	}
 	//In case that there is no "current" proxy
-	if pl.GetCurrent() == nil {
+	if pl.current == nil {
 		pl.current = NewProxy("DIRECT", "DIRECT", "")
 	}
 	return nil
