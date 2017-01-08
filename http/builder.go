@@ -134,10 +134,26 @@ func (b *ServerBuilder) Build() common.Server {
 	newServer.httpserver.GET("/proxies/:name", func(c echo.Context) error {
 		p, err := b.proxylist.Find(c.Param("name"))
 		if err != nil {
-			c.JSON(http.StatusNotFound, map[string]string{"Message": err.Error()})
-			return nil
+			return c.JSON(http.StatusNotFound, map[string]string{"Message": err.Error()})
 		}
 		return c.JSON(http.StatusOK, p.ToMap())
+	})
+
+	//PATCH :name proxy
+	newServer.httpserver.PATCH("/proxies/:name", func(c echo.Context) error {
+		if c.Request().Header.Get("Content-Type") != "application/json" {
+			return c.JSON(http.StatusUnsupportedMediaType, map[string]string{"Message": "Must be 'application/json' MIME type"})
+		}
+		bodyDecoder := json.NewDecoder(c.Request().Body)
+		p := new(ProxiesPostBody)
+		if err := bodyDecoder.Decode(p); err != nil {
+			return err
+		}
+		if err := b.proxylist.Set(c.Param("name"), p.Protocol, p.Address); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"Message": err.Error()})
+		}
+		c.Response().WriteHeader(http.StatusOK)
+		return nil
 	})
 
 	//Delete /proxies/:name
@@ -155,10 +171,14 @@ func (b *ServerBuilder) Build() common.Server {
 		return c.String(http.StatusOK, b.whitelist.ToJsArray())
 	})
 
+	//Query if a url exists in the whitelist
+	newServer.httpserver.GET("/whitelist/:url", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]bool{"Exists": b.whitelist.Has(c.Param("url"))})
+	})
+
 	newServer.httpserver.POST("/proxies", func(c echo.Context) error {
 		if c.Request().Header.Get("Content-Type") != "application/json" {
-			c.JSON(http.StatusUnsupportedMediaType, map[string]string{"Message": "Must be 'application/json' MIME type"})
-			return nil
+			return c.JSON(http.StatusUnsupportedMediaType, map[string]string{"Message": "Must be 'application/json' MIME type"})
 		}
 		bodyDecoder := json.NewDecoder(c.Request().Body)
 		newProxy := new(ProxiesPostBody)
@@ -216,8 +236,6 @@ func (b *ServerBuilder) Build() common.Server {
 			} else {
 				err = c.JSON(http.StatusForbidden, map[string]string{"Message": "Doesn't exists"})
 			}
-		case "Has":
-			err = c.JSON(http.StatusOK, map[string]bool{"Exists": b.whitelist.Has(listOperation.Url)})
 		default:
 			err = c.JSON(http.StatusBadRequest, map[string]string{"Message": "No such operation"})
 		}
