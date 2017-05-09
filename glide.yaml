@@ -1,0 +1,4 @@
+package: github.com/Zumium/mywl
+import:
+- package: github.com/labstack/echo
+  version: ^3.1.0
